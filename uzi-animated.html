@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UZI — Click to Fire</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Orbitron:wght@700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: crosshair;
+    user-select: none;
+    font-family: 'Orbitron', monospace;
+  }
+
+  .scene {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Ambient background grain */
+  .scene::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 30% 60%, rgba(237,85,100,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 40%, rgba(170,178,188,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .uzi-container {
+    position: relative;
+    z-index: 2;
+    transition: transform 0.05s ease;
+  }
+
+  .uzi-container.recoil {
+    animation: recoil 0.08s ease-out;
+  }
+
+  @keyframes recoil {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    30% { transform: translate(-6px, -3px) rotate(-2deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+
+  .uzi-svg {
+    width: 320px;
+    height: 320px;
+    filter: drop-shadow(0 0 20px rgba(0,0,0,0.6));
+    transform: rotate(-30deg);
+  }
+
+  /* Muzzle flash */
+  .muzzle-flash {
+    position: absolute;
+    top: -10px;
+    right: -60px;
+    width: 120px;
+    height: 120px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+    transform: rotate(-30deg);
+  }
+
+  .muzzle-flash.fire {
+    animation: flash 0.1s ease-out;
+  }
+
+  @keyframes flash {
+    0% { opacity: 1; transform: rotate(-30deg) scale(0.5); }
+    50% { opacity: 0.9; transform: rotate(-30deg) scale(1.2); }
+    100% { opacity: 0; transform: rotate(-30deg) scale(0.8); }
+  }
+
+  /* Shell casings */
+  .shell {
+    position: absolute;
+    width: 6px;
+    height: 14px;
+    background: linear-gradient(135deg, #d4a332 40%, #b8860b 60%);
+    border-radius: 2px 2px 1px 1px;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  /* Bullet holes on background */
+  .bullet-hole {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #111 40%, #333 70%, transparent 100%);
+    box-shadow: 0 0 6px 2px rgba(237,85,100,0.3), inset 0 0 3px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 1;
+    animation: holeAppear 0.15s ease-out forwards;
+  }
+
+  @keyframes holeAppear {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.4); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Bullet tracer */
+  .tracer {
+    position: absolute;
+    width: 30px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255,220,100,0.9), rgba(255,160,50,0));
+    pointer-events: none;
+    z-index: 8;
+    border-radius: 1px;
+  }
+
+  /* HUD */
+  .hud {
+    position: fixed;
+    top: 30px;
+    left: 30px;
+    z-index: 100;
+    color: #ed5564;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  .hud .title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 8px;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(237,85,100,0.4);
+  }
+
+  .hud .subtitle {
+    margin-top: 4px;
+    color: #aab2bc;
+  }
+
+  .ammo-counter {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 100;
+    text-align: right;
+  }
+
+  .ammo-counter .label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #656d78;
+    text-transform: uppercase;
+  }
+
+  .ammo-counter .count {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 72px;
+    line-height: 1;
+    color: #ed5564;
+    text-shadow: 0 0 20px rgba(237,85,100,0.5);
+    transition: color 0.1s;
+  }
+
+  .ammo-counter .count.low {
+    animation: ammoWarn 0.5s infinite;
+  }
+
+  @keyframes ammoWarn {
+    0%, 100% { color: #ed5564; }
+    50% { color: #da4453; text-shadow: 0 0 40px rgba(237,85,100,0.8); }
+  }
+
+  .ammo-counter .max {
+    font-size: 18px;
+    color: #434a54;
+  }
+
+  .reload-msg {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: #ed5564;
+    letter-spacing: 6px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+    text-shadow: 0 0 30px rgba(237,85,100,0.6);
+  }
+
+  .reload-msg.show {
+    animation: reloadPulse 1.5s ease-in-out;
+  }
+
+  @keyframes reloadPulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  .instructions {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #434a54;
+    text-transform: uppercase;
+    z-index: 100;
+  }
+
+  /* Screen shake */
+  .scene.shake {
+    animation: shake 0.08s ease;
+  }
+
+  @keyframes shake {
+    0% { transform: translate(0,0); }
+    25% { transform: translate(-2px, 1px); }
+    50% { transform: translate(2px, -1px); }
+    75% { transform: translate(-1px, -1px); }
+    100% { transform: translate(0,0); }
+  }
+
+  /* Spark particles */
+  .spark {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: #ffdc64;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9;
+  }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="title">UZI</div>
+  <div class="subtitle">9mm · Full Auto</div>
+</div>
+
+<div class="ammo-counter">
+  <div class="label">Rounds</div>
+  <div class="count" id="ammoCount">32</div>
+  <div class="max">/ 32</div>
+</div>
+
+<div class="instructions">Click to fire · Hold for auto · R to reload</div>
+
+<div class="reload-msg" id="reloadMsg">RELOADING...</div>
+
+<div class="scene" id="scene">
+  <div class="uzi-container" id="uziContainer">
+    <!-- Muzzle flash SVG -->
+    <svg class="muzzle-flash" id="muzzleFlash" viewBox="0 0 120 120">
+      <defs>
+        <radialGradient id="flashGrad">
+          <stop offset="0%" stop-color="#fff" stop-opacity="1"/>
+          <stop offset="30%" stop-color="#ffdc64" stop-opacity="0.9"/>
+          <stop offset="60%" stop-color="#ff8c00" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#ed5564" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="60" cy="60" r="55" fill="url(#flashGrad)"/>
+      <ellipse cx="60" cy="40" rx="15" ry="40" fill="rgba(255,255,200,0.7)" transform="rotate(-15 60 60)"/>
+      <ellipse cx="60" cy="40" rx="10" ry="35" fill="rgba(255,255,200,0.5)" transform="rotate(20 60 60)"/>
+    </svg>
+
+    <!-- UZI SVG -->
+    <svg class="uzi-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 511.992 511.992">
+      <g>
+        <path style="fill:#ED5564;" d="M202.661,357.337h-63.999c-5.891,0-10.664,4.766-10.664,10.671v106.655c0,5.89,4.773,10.671,10.664,10.671h63.999c5.89,0,10.671-4.781,10.671-10.671V368.008C213.332,362.102,208.551,357.337,202.661,357.337z"/>
+        <path style="fill:#ED5564;" d="M255.996,240.002c-2.727,0-5.461-1.047-7.539-3.125l-32-31.999c-4.172-4.172-4.172-10.922,0-15.094c4.164-4.156,10.914-4.156,15.078,0l32,31.999c4.172,4.172,4.172,10.922,0,15.094C261.457,238.955,258.723,240.002,255.996,240.002z"/>
+      </g>
+      <path style="fill:#AAB2BC;" d="M287.996,272.01h-64c-5.891,0-10.664-4.789-10.664-10.679c0-5.891,4.773-10.672,10.664-10.672h59.578l15.078-15.078v-38.249c0-5.891,4.781-10.672,10.688-10.672c5.875,0,10.654,4.781,10.654,10.672v42.671c0,2.828-1.125,5.531-3.123,7.531l-21.344,21.343C293.527,270.877,290.824,272.01,287.996,272.01z"/>
+      <path style="fill:#434A54;" d="M223.996,186.66H117.334c-5.891,0-10.672,4.781-10.672,10.672v170.676c0,5.891,4.781,10.656,10.672,10.656h106.662c5.891,0,10.664-4.766,10.664-10.656V197.331C234.661,191.441,229.887,186.66,223.996,186.66z"/>
+      <path style="fill:#DA4453;" d="M170.662,400.008c-5.891,0-10.664,4.766-10.664,10.656v74.67h21.335v-74.67C181.333,404.773,176.552,400.008,170.662,400.008z"/>
+      <path style="fill:#AAB2BC;" d="M501.336,101.333h-85.342c-5.891,0-10.656,4.766-10.656,10.671v32c0,5.891,4.766,10.656,10.656,10.656h85.342c5.875,0,10.656-4.765,10.656-10.656v-32C511.992,106.099,507.211,101.333,501.336,101.333z"/>
+      <g>
+        <path style="fill:#434A54;" d="M415.994,80.005h-32c-5.891,0-10.656,4.766-10.656,10.656v74.67c0,5.891,4.766,10.672,10.656,10.672h32c5.891,0,10.656-4.781,10.656-10.672v-74.67C426.65,84.771,421.885,80.005,415.994,80.005z"/>
+        <path style="fill:#434A54;" d="M74.663,26.663H32c-2.828,0-5.539,1.125-7.539,3.125L3.125,51.115c-2,2-3.125,4.718-3.125,7.546v10.672c0,5.891,4.773,10.672,10.664,10.672h63.999c5.891,0,10.672-4.781,10.672-10.672V37.334C85.335,31.444,80.554,26.663,74.663,26.663z"/>
+        <path style="fill:#434A54;" d="M391.416,29.678c-2.078-2.016-4.859-3.094-7.766-3.016c-0.5,0.031-12.625,0.453-24.875,5.234c-18.125,7.078-28.125,20.375-28.125,37.437c0,5.891,4.781,10.672,10.688,10.672h42.656c5.891,0,10.656-4.781,10.656-10.672V37.334C394.65,34.444,393.494,31.678,391.416,29.678z"/>
+      </g>
+      <path style="fill:#AAB2BC;" d="M319.994,26.663c-5.889,0-10.654,4.781-10.654,10.672v31.999c0,5.891,4.766,10.672,10.654,10.672c5.891,0,10.656-4.781,10.656-10.672v-32C330.65,31.444,325.885,26.663,319.994,26.663z"/>
+      <path style="fill:#656D78;" d="M383.994,58.662H10.664C4.773,58.662,0,63.443,0,69.334v85.327c0,5.891,4.773,10.671,10.664,10.671h18.82l83.077,41.531c1.484,0.75,3.117,1.141,4.773,1.141H330.65c2.844,0,5.562-1.125,7.562-3.125l18.203-18.219h27.578c5.891,0,10.656-4.766,10.656-10.656V69.333C394.65,63.443,389.885,58.662,383.994,58.662z"/>
+      <g>
+        <path style="fill:#434A54;" d="M309.34,122.661H117.334c-5.891,0-10.672-4.766-10.672-10.656c0-5.906,4.781-10.671,10.672-10.671h192.005c5.875,0,10.654,4.766,10.654,10.671C319.994,117.895,315.215,122.661,309.34,122.661z"/>
+        <path style="fill:#434A54;" d="M309.34,165.331H117.334c-5.891,0-10.672-4.781-10.672-10.671s4.781-10.656,10.672-10.656h192.005c5.875,0,10.654,4.766,10.654,10.656C319.994,160.551,315.215,165.331,309.34,165.331z"/>
+      </g>
+      <g>
+        <path style="fill:#656D78;" d="M117.334,240.002c0-5.906-4.781-10.672-10.672-10.672v21.328C112.553,250.659,117.334,245.893,117.334,240.002z"/>
+        <path style="fill:#656D78;" d="M117.334,282.666c0-5.891-4.781-10.656-10.672-10.656v21.328C112.553,293.338,117.334,288.557,117.334,282.666z"/>
+        <path style="fill:#656D78;" d="M223.996,282.666c0,5.891,4.773,10.672,10.664,10.672V272.01C228.77,272.01,223.996,276.775,223.996,282.666z"/>
+        <path style="fill:#656D78;" d="M223.996,240.002c0,5.891,4.773,10.656,10.664,10.656V229.33C228.77,229.33,223.996,234.096,223.996,240.002z"/>
+        <path style="fill:#656D78;" d="M202.661,336.009c0-5.905-4.773-10.671-10.664-10.671h-42.663c-5.891,0-10.672,4.766-10.672,10.671v42.655h63.999L202.661,336.009L202.661,336.009z"/>
+      </g>
+      <path style="fill:#ED5564;" d="M53.335,112.004c0,5.875-4.781,10.656-10.672,10.656c-5.89,0-10.664-4.781-10.664-10.656c0-5.906,4.773-10.671,10.664-10.671C48.554,101.333,53.335,106.099,53.335,112.004z"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+  const scene = document.getElementById('scene');
+  const uzi = document.getElementById('uziContainer');
+  const flash = document.getElementById('muzzleFlash');
+  const ammoEl = document.getElementById('ammoCount');
+  const reloadMsg = document.getElementById('reloadMsg');
+
+  let ammo = 32;
+  const maxAmmo = 32;
+  let firing = false;
+  let fireInterval = null;
+  let reloading = false;
+  let audioCtx = null;
+
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  // Synthesize gunshot sound
+  function playGunshot() {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+
+    // Noise burst for the shot crack
+    const bufferSize = ctx.sampleRate * 0.08;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.6, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 3000;
+    noiseFilter.Q.value = 0.5;
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.08);
+
+    // Low thump
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.06);
+
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0.8, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    osc.connect(oscGain);
+    oscGain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+
+    // Metallic click
+    const click = ctx.createOscillator();
+    click.type = 'square';
+    click.frequency.setValueAtTime(800 + Math.random() * 400, now);
+
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.15, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+
+    click.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    click.start(now);
+    click.stop(now + 0.02);
+  }
+
+  function playEmpty() {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 600;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.1, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.04);
+  }
+
+  function playReload() {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+
+    // Magazine slide
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.linearRampToValueAtTime(400, now + 0.15);
+    osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.15, now + 0.05);
+    g.gain.setValueAtTime(0.15, now + 0.15);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 1200;
+    f.Q.value = 2;
+
+    osc.connect(f);
+    f.connect(g);
+    g.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.3);
+
+    // Click
+    setTimeout(() => {
+      const ctx2 = getAudioCtx();
+      const n = ctx2.currentTime;
+      const c = ctx2.createOscillator();
+      c.type = 'square';
+      c.frequency.value = 1500;
+      const cg = ctx2.createGain();
+      cg.gain.setValueAtTime(0.2, n);
+      cg.gain.exponentialRampToValueAtTime(0.001, n + 0.03);
+      c.connect(cg);
+      cg.connect(ctx2.destination);
+      c.start(n);
+      c.stop(n + 0.03);
+    }, 400);
+  }
+
+  function updateAmmo() {
+    ammoEl.textContent = ammo;
+    if (ammo <= 5) {
+      ammoEl.classList.add('low');
+    } else {
+      ammoEl.classList.remove('low');
+    }
+  }
+
+  function spawnShell() {
+    const shell = document.createElement('div');
+    shell.className = 'shell';
+    const uziRect = uzi.getBoundingClientRect();
+    shell.style.left = (uziRect.left + uziRect.width * 0.45) + 'px';
+    shell.style.top = (uziRect.top + uziRect.height * 0.35) + 'px';
+
+    const vx = -3 + Math.random() * -4;
+    const vy = -6 + Math.random() * -3;
+    const rot = Math.random() * 720;
+
+    scene.appendChild(shell);
+
+    let x = 0, y = 0, frame = 0;
+    const gravity = 0.5;
+    let velY = vy;
+
+    function animShell() {
+      x += vx;
+      velY += gravity;
+      y += velY;
+      frame++;
+      shell.style.transform = `translate(${x}px, ${y}px) rotate(${rot * (frame / 30)}deg)`;
+      if (frame < 40) {
+        requestAnimationFrame(animShell);
+      } else {
+        shell.remove();
+      }
+    }
+    requestAnimationFrame(animShell);
+  }
+
+  function spawnTracer(e) {
+    const tracer = document.createElement('div');
+    tracer.className = 'tracer';
+    const uziRect = uzi.getBoundingClientRect();
+    const startX = uziRect.right - 40;
+    const startY = uziRect.top + 20;
+
+    const angle = Math.atan2(e.clientY - startY, e.clientX - startX);
+
+    tracer.style.left = startX + 'px';
+    tracer.style.top = startY + 'px';
+    tracer.style.transform = `rotate(${angle}rad)`;
+    scene.appendChild(tracer);
+
+    let dist = 0;
+    function animTracer() {
+      dist += 40;
+      tracer.style.left = (startX + Math.cos(angle) * dist) + 'px';
+      tracer.style.top = (startY + Math.sin(angle) * dist) + 'px';
+      tracer.style.opacity = 1 - dist / 600;
+      if (dist < 600) {
+        requestAnimationFrame(animTracer);
+      } else {
+        tracer.remove();
+      }
+    }
+    requestAnimationFrame(animTracer);
+  }
+
+  function spawnBulletHole(e) {
+    const hole = document.createElement('div');
+    hole.className = 'bullet-hole';
+    const spread = 20;
+    hole.style.left = (e.clientX + (Math.random() - 0.5) * spread) + 'px';
+    hole.style.top = (e.clientY + (Math.random() - 0.5) * spread) + 'px';
+    scene.appendChild(hole);
+    setTimeout(() => hole.remove(), 8000);
+  }
+
+  function spawnSparks(e) {
+    for (let i = 0; i < 4; i++) {
+      const spark = document.createElement('div');
+      spark.className = 'spark';
+      spark.style.left = e.clientX + 'px';
+      spark.style.top = e.clientY + 'px';
+
+      const vx = (Math.random() - 0.5) * 10;
+      const vy = (Math.random() - 0.5) * 10;
+      scene.appendChild(spark);
+
+      let x = 0, y = 0, frame = 0;
+      function animSpark() {
+        x += vx;
+        y += vy + frame * 0.3;
+        frame++;
+        spark.style.transform = `translate(${x}px, ${y}px)`;
+        spark.style.opacity = 1 - frame / 15;
+        if (frame < 15) {
+          requestAnimationFrame(animSpark);
+        } else {
+          spark.remove();
+        }
+      }
+      requestAnimationFrame(animSpark);
+    }
+  }
+
+  function fire(e) {
+    if (reloading) return;
+
+    if (ammo <= 0) {
+      playEmpty();
+      return;
+    }
+
+    ammo--;
+    updateAmmo();
+    playGunshot();
+
+    // Recoil
+    uzi.classList.remove('recoil');
+    void uzi.offsetWidth;
+    uzi.classList.add('recoil');
+
+    // Muzzle flash
+    flash.classList.remove('fire');
+    void flash.offsetWidth;
+    flash.classList.add('fire');
+
+    // Screen shake
+    scene.classList.remove('shake');
+    void scene.offsetWidth;
+    scene.classList.add('shake');
+
+    // Effects
+    spawnShell();
+    spawnTracer(e);
+    spawnBulletHole(e);
+    spawnSparks(e);
+  }
+
+  function startFiring(e) {
+    if (reloading) return;
+    firing = true;
+    fire(e);
+    let lastE = e;
+    document.addEventListener('mousemove', (ev) => { lastE = ev; });
+    fireInterval = setInterval(() => {
+      if (ammo > 0) {
+        fire(lastE);
+      } else {
+        stopFiring();
+        playEmpty();
+      }
+    }, 75); // ~800 RPM
+  }
+
+  function stopFiring() {
+    firing = false;
+    if (fireInterval) {
+      clearInterval(fireInterval);
+      fireInterval = null;
+    }
+  }
+
+  function reload() {
+    if (reloading || ammo === maxAmmo) return;
+    reloading = true;
+    stopFiring();
+
+    playReload();
+
+    reloadMsg.classList.remove('show');
+    void reloadMsg.offsetWidth;
+    reloadMsg.classList.add('show');
+
+    setTimeout(() => {
+      ammo = maxAmmo;
+      updateAmmo();
+      reloading = false;
+    }, 1500);
+  }
+
+  // Event listeners
+  scene.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startFiring(e);
+  });
+
+  document.addEventListener('mouseup', stopFiring);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') reload();
+  });
+
+  // Touch support
+  scene.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    startFiring({ clientX: touch.clientX, clientY: touch.clientY });
+  }, { passive: false });
+
+  document.addEventListener('touchend', stopFiring);
+</script>
+</body>
+</html>
