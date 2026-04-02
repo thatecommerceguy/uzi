@@ -156,31 +156,55 @@
     color: #aab2bc;
   }
 
-  .ammo-counter {
+  /* Bottom toolbar */
+  .bottom-toolbar {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: 0;
+    left: 0;
+    right: 0;
     z-index: 100;
-    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10, 10, 10, 0.85);
+    border-top: 1px solid rgba(67, 74, 84, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    gap: 12px;
   }
 
-  .ammo-counter .label {
-    font-size: 10px;
-    letter-spacing: 3px;
+  .toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toolbar-label {
+    font-size: 9px;
+    letter-spacing: 2px;
     color: #656d78;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
-  .ammo-counter .count {
+  /* Ammo display */
+  .ammo-display {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .ammo-display .count {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 72px;
+    font-size: 48px;
     line-height: 1;
     color: #ed5564;
     text-shadow: 0 0 20px rgba(237,85,100,0.5);
     transition: color 0.1s;
   }
 
-  .ammo-counter .count.low {
+  .ammo-display .count.low {
     animation: ammoWarn 0.5s infinite;
   }
 
@@ -189,9 +213,79 @@
     50% { color: #da4453; text-shadow: 0 0 40px rgba(237,85,100,0.8); }
   }
 
-  .ammo-counter .max {
-    font-size: 18px;
+  .ammo-display .max {
+    font-size: 16px;
     color: #434a54;
+    font-family: 'Bebas Neue', sans-serif;
+  }
+
+  /* Magazine buttons */
+  .mag-options {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mag-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border: 1px solid #434a54;
+    border-radius: 3px;
+    background: rgba(67, 74, 84, 0.3);
+    color: #aab2bc;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mag-btn:hover {
+    border-color: #ed5564;
+    color: #ed5564;
+    background: rgba(237, 85, 100, 0.1);
+  }
+
+  .mag-btn.active {
+    border-color: #ed5564;
+    color: #ed5564;
+    background: rgba(237, 85, 100, 0.15);
+    box-shadow: 0 0 10px rgba(237, 85, 100, 0.2);
+  }
+
+  /* Reload button */
+  .reload-trigger {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    padding: 8px 20px;
+    border: 1px solid #ed5564;
+    border-radius: 3px;
+    background: rgba(237, 85, 100, 0.1);
+    color: #ed5564;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    text-shadow: 0 0 10px rgba(237, 85, 100, 0.3);
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .reload-trigger:hover {
+    background: rgba(237, 85, 100, 0.25);
+    box-shadow: 0 0 20px rgba(237, 85, 100, 0.3);
+  }
+
+  .reload-trigger:active {
+    transform: scale(0.96);
+  }
+
+  .toolbar-hint {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #434a54;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .reload-msg {
@@ -220,15 +314,56 @@
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
   }
 
-  .instructions {
-    position: fixed;
-    bottom: 30px;
-    left: 30px;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #434a54;
-    text-transform: uppercase;
-    z-index: 100;
+  /* Mobile: stack toolbar vertically */
+  @media (max-width: 600px) {
+    .bottom-toolbar {
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+      gap: 8px;
+    }
+
+    .toolbar-section {
+      gap: 8px;
+    }
+
+    .toolbar-section.ammo-section {
+      order: -1;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .ammo-display .count {
+      font-size: 36px;
+    }
+
+    .mag-btn {
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .reload-trigger {
+      padding: 10px 20px;
+      font-size: 18px;
+    }
+
+    .toolbar-hint {
+      display: none;
+    }
+
+    .hud .title {
+      font-size: 32px;
+    }
+
+    .hud .subtitle {
+      font-size: 9px;
+    }
+
+    .uzi-svg {
+      width: 200px;
+      height: 200px;
+    }
   }
 
   /* Screen shake */
@@ -263,13 +398,30 @@
   <div class="subtitle">9mm · Full Auto</div>
 </div>
 
-<div class="ammo-counter">
-  <div class="label">Rounds</div>
-  <div class="count" id="ammoCount">32</div>
-  <div class="max">/ 32</div>
-</div>
+<div class="bottom-toolbar" id="toolbar">
+  <div class="toolbar-section ammo-section">
+    <div class="toolbar-label">Rounds</div>
+    <div class="ammo-display">
+      <span class="count" id="ammoCount">32</span>
+      <span class="max" id="maxAmmoDisplay">/ 32</span>
+    </div>
+  </div>
 
-<div class="instructions">Click to fire · Hold for auto · R to reload</div>
+  <div class="toolbar-section">
+    <div class="toolbar-label">Mag</div>
+    <div class="mag-options">
+      <button class="mag-btn active" data-mag="32">32</button>
+      <button class="mag-btn" data-mag="64">64</button>
+      <button class="mag-btn" data-mag="128">128</button>
+    </div>
+  </div>
+
+  <div class="toolbar-section">
+    <button class="reload-trigger" id="reloadBtn">Reload</button>
+  </div>
+
+  <div class="toolbar-hint">R to reload</div>
+</div>
 
 <div class="reload-msg" id="reloadMsg">RELOADING...</div>
 
@@ -330,8 +482,8 @@
   const ammoEl = document.getElementById('ammoCount');
   const reloadMsg = document.getElementById('reloadMsg');
 
-  let ammo = 32;
-  const maxAmmo = 32;
+  let maxAmmo = 32;
+  let ammo = maxAmmo;
   let firing = false;
   let fireInterval = null;
   let reloading = false;
@@ -667,6 +819,32 @@
   }, { passive: false });
 
   document.addEventListener('touchend', stopFiring);
+
+  // Magazine selection
+  const magBtns = document.querySelectorAll('.mag-btn');
+  const maxAmmoEl = document.getElementById('maxAmmoDisplay');
+
+  // Prevent toolbar from firing gun
+  const toolbar = document.getElementById('toolbar');
+  toolbar.addEventListener('mousedown', (e) => e.stopPropagation());
+  toolbar.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: false });
+
+  magBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      magBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      maxAmmo = parseInt(btn.dataset.mag);
+      maxAmmoEl.textContent = '/ ' + maxAmmo;
+    });
+  });
+
+  // Reload button
+  const reloadBtn = document.getElementById('reloadBtn');
+  reloadBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    reload();
+  });
 </script>
 </body>
 </html>
