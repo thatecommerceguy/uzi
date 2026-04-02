@@ -366,6 +366,23 @@
     }
   }
 
+  /* Barrel heat — color the barrel path directly via JS, no whole-gun glow */
+  #barrelPath {
+    transition: fill 0.3s ease, filter 0.3s ease;
+  }
+
+  /* Heat smoke wisps */
+  .heat-smoke {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(180, 180, 180, 0.25);
+    pointer-events: none;
+    z-index: 8;
+    filter: blur(3px);
+  }
+
   /* Screen shake */
   .scene.shake {
     animation: shake 0.08s ease;
@@ -451,7 +468,7 @@
       <path style="fill:#AAB2BC;" d="M287.996,272.01h-64c-5.891,0-10.664-4.789-10.664-10.679c0-5.891,4.773-10.672,10.664-10.672h59.578l15.078-15.078v-38.249c0-5.891,4.781-10.672,10.688-10.672c5.875,0,10.654,4.781,10.654,10.672v42.671c0,2.828-1.125,5.531-3.123,7.531l-21.344,21.343C293.527,270.877,290.824,272.01,287.996,272.01z"/>
       <path style="fill:#434A54;" d="M223.996,186.66H117.334c-5.891,0-10.672,4.781-10.672,10.672v170.676c0,5.891,4.781,10.656,10.672,10.656h106.662c5.891,0,10.664-4.766,10.664-10.656V197.331C234.661,191.441,229.887,186.66,223.996,186.66z"/>
       <path style="fill:#DA4453;" d="M170.662,400.008c-5.891,0-10.664,4.766-10.664,10.656v74.67h21.335v-74.67C181.333,404.773,176.552,400.008,170.662,400.008z"/>
-      <path style="fill:#AAB2BC;" d="M501.336,101.333h-85.342c-5.891,0-10.656,4.766-10.656,10.671v32c0,5.891,4.766,10.656,10.656,10.656h85.342c5.875,0,10.656-4.765,10.656-10.656v-32C511.992,106.099,507.211,101.333,501.336,101.333z"/>
+      <path id="barrelPath" style="fill:#AAB2BC;" d="M501.336,101.333h-85.342c-5.891,0-10.656,4.766-10.656,10.671v32c0,5.891,4.766,10.656,10.656,10.656h85.342c5.875,0,10.656-4.765,10.656-10.656v-32C511.992,106.099,507.211,101.333,501.336,101.333z"/>
       <g>
         <path style="fill:#434A54;" d="M415.994,80.005h-32c-5.891,0-10.656,4.766-10.656,10.656v74.67c0,5.891,4.766,10.672,10.656,10.672h32c5.891,0,10.656-4.781,10.656-10.672v-74.67C426.65,84.771,421.885,80.005,415.994,80.005z"/>
         <path style="fill:#434A54;" d="M74.663,26.663H32c-2.828,0-5.539,1.125-7.539,3.125L3.125,51.115c-2,2-3.125,4.718-3.125,7.546v10.672c0,5.891,4.773,10.672,10.664,10.672h63.999c5.891,0,10.672-4.781,10.672-10.672V37.334C85.335,31.444,80.554,26.663,74.663,26.663z"/>
@@ -488,6 +505,81 @@
   let fireInterval = null;
   let reloading = false;
   let audioCtx = null;
+
+  // Heat system
+  let shotsFired = 0;
+  const HEAT_THRESHOLD = 25;
+  const HEAT_MAX = 80;
+  let cooldownTimer = null;
+
+  const barrelPath = document.getElementById('barrelPath');
+
+  function lerpColor(t) {
+    // silver #AAB2BC -> dark orange #CC4400 -> bright red #FF2200
+    const r = Math.round(170 + t * (255 - 170));
+    const g = Math.round(178 - t * (178 - 34));
+    const b = Math.round(188 - t * (188 - 0));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function updateHeat() {
+    if (shotsFired >= HEAT_THRESHOLD) {
+      const intensity = Math.min((shotsFired - HEAT_THRESHOLD) / (HEAT_MAX - HEAT_THRESHOLD), 1);
+      uzi.classList.add('heated');
+      // Color the barrel from silver -> orange -> red
+      barrelPath.style.fill = lerpColor(intensity);
+      // Add glow only on the barrel path
+      const glowSize = Math.round(4 + intensity * 12);
+      const glowOpacity = (0.4 + intensity * 0.6).toFixed(2);
+      barrelPath.style.filter = `drop-shadow(0 0 ${glowSize}px rgba(255,60,10,${glowOpacity}))`;
+    } else {
+      uzi.classList.remove('heated');
+      barrelPath.style.fill = '#AAB2BC';
+      barrelPath.style.filter = 'none';
+    }
+  }
+
+  function spawnHeatSmoke() {
+    if (shotsFired < HEAT_THRESHOLD) return;
+    const smoke = document.createElement('div');
+    smoke.className = 'heat-smoke';
+    // Position smoke at the barrel tip
+    const barrelRect = barrelPath.getBoundingClientRect();
+    smoke.style.left = (barrelRect.right - 10 + (Math.random() - 0.5) * 12) + 'px';
+    smoke.style.top = (barrelRect.top + barrelRect.height / 2 + (Math.random() - 0.5) * 8) + 'px';
+    scene.appendChild(smoke);
+
+    let x = 0, y = 0, frame = 0;
+    const vx = (Math.random() - 0.5) * 1.5;
+    function animSmoke() {
+      x += vx;
+      y -= 1.2 + Math.random() * 0.5;
+      frame++;
+      smoke.style.transform = `translate(${x}px, ${y}px) scale(${1 + frame * 0.06})`;
+      smoke.style.opacity = (0.25 - frame * 0.006);
+      if (frame < 40) {
+        requestAnimationFrame(animSmoke);
+      } else {
+        smoke.remove();
+      }
+    }
+    requestAnimationFrame(animSmoke);
+  }
+
+  function startCooldown() {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(() => {
+      if (firing) return; // don't cool while actively firing
+      if (shotsFired > 0) {
+        shotsFired = Math.max(0, shotsFired - 1);
+        updateHeat();
+        if (shotsFired >= HEAT_THRESHOLD) spawnHeatSmoke();
+      } else {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+    }, 150);
+  }
 
   function getAudioCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -755,6 +847,11 @@
     spawnTracer(e);
     spawnBulletHole(e);
     spawnSparks(e);
+
+    // Heat
+    shotsFired = Math.min(shotsFired + 1, HEAT_MAX);
+    updateHeat();
+    if (shotsFired >= HEAT_THRESHOLD) spawnHeatSmoke();
   }
 
   function startFiring(e) {
@@ -779,6 +876,7 @@
       clearInterval(fireInterval);
       fireInterval = null;
     }
+    if (shotsFired > 0) startCooldown();
   }
 
   function reload() {
